@@ -77,12 +77,26 @@ tOwned[a]  = 地址 a 的真实余额（仅对被排除账户维护）
 _isExcludedFromReward[a] = 地址是否被排除在反射之外（例如合约、burn）
 currentRate = _rTotal / _tTotal
 
-
 重要关系：
-
 对未排除地址 a：balanceOf(a) = rOwned[a] / currentRate
-
 对排除地址 b：balanceOf(b) = tOwned[b]（并且 rOwned[b] 也会维护，但用于计算 rSupply）
+
+注意：反射总量为什么要使用Max 一个很大的值？
+因为要保持 除法运算的精度：
+* 如果 _rTotal（rSupply） 是一个小数（比如和 tSupply 同量级），那么 rOwned / rate 的精度会很差；
+* 当你计算分红时，由于 Solidity 是整数除法，会出现大量舍入误差；
+* 这种误差在连续反射中会累积，导致反射币的总供应和持仓不再精确匹配。
+
+将 _rTotal 设置为 接近 uint256 最大值，例如：
+> uint256 private constant MAX = ~uint256(0);
+  uint256 private _rTotal = (MAX - (MAX % _tTotal));
+
+就能确保：
+* rate = rTotal / tTotal 是一个很大的整数，⇒ 避免精度丢失；
+* 所有乘除法都能在整数域内完成；
+* 保证反射计算稳定、不会溢出或出现 0
+
+但是也有一些问题：当反射分红是一个较小的数时，经过反射计算，舍入误差，余额几乎不会发生变化；
 
 ## 三、数学与行为（核心公式）
 
